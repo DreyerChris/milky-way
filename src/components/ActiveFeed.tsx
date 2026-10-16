@@ -3,8 +3,10 @@ import { useState } from 'preact/hooks'
 import { feedStart, lastSide, openInterval, otherSide, sideMs, totalMs } from '../feeds'
 import { formatClock, formatTimer, sideLabel } from '../format'
 import type { Action, Feed, Side } from '../types'
+import { EditTimesSheet } from './EditTimesSheet'
 import { Icon } from './Icon'
 import { PumpedInput } from './PumpedInput'
+import { TagPicker } from './TagPicker'
 
 interface ActiveFeedProps {
   readonly feed: Feed
@@ -16,6 +18,7 @@ const SIDES: readonly Side[] = ['left', 'right']
 
 export function ActiveFeed({ feed, now, dispatch }: ActiveFeedProps): JSX.Element {
   const [confirmDiscard, setConfirmDiscard] = useState(false)
+  const [editing, setEditing] = useState(false)
   const running = openInterval(feed)
   const current = running?.side ?? lastSide(feed) ?? 'left'
   const status = running ? `Feeding on the ${sideLabel(current).toLowerCase()}` : 'Paused'
@@ -28,7 +31,12 @@ export function ActiveFeed({ feed, now, dispatch }: ActiveFeedProps): JSX.Elemen
       <div class="big-timer" role="timer" aria-label={`Session time ${formatTimer(totalMs(feed, now))}`}>
         {formatTimer(totalMs(feed, now))}
       </div>
-      <p class="sub">Started at {formatClock(feedStart(feed))}</p>
+      <p class="sub sub--row">
+        Started at {formatClock(feedStart(feed))}
+        <button type="button" class="link link--inline" onClick={() => setEditing(true)}>
+          Edit times
+        </button>
+      </p>
 
       <div class="sides" role="group" aria-label="Breast side">
         {SIDES.map((side) => {
@@ -81,6 +89,26 @@ export function ActiveFeed({ feed, now, dispatch }: ActiveFeedProps): JSX.Elemen
         value={feed.pumpedMl}
         onChange={(ml) => dispatch({ type: 'set-pumped', id: feed.id, ml })}
       />
+
+      <TagPicker
+        id={`tags-${feed.id}`}
+        tags={feed.tags}
+        note={feed.note}
+        onToggle={(tag) => dispatch({ type: 'toggle-tag', target: { kind: 'feed', id: feed.id }, tag })}
+        onNote={(note) => dispatch({ type: 'set-note', target: { kind: 'feed', id: feed.id }, note })}
+      />
+
+      {editing && (
+        <EditTimesSheet
+          feed={feed}
+          now={now}
+          onClose={() => setEditing(false)}
+          onSave={(edit) => {
+            dispatch({ type: 'edit-times', id: feed.id, edit, now: Date.now() })
+            setEditing(false)
+          }}
+        />
+      )}
 
       <div class="discard">
         {confirmDiscard ? (

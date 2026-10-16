@@ -50,3 +50,13 @@ export const sideLabel = (side: Side): string => (side === 'left' ? 'Left' : 'Ri
 export const sideShort = (side: Side): string => (side === 'left' ? 'L' : 'R')
 
 export const hourLabel = (hour: number): string => `${pad(hour)}:00`
+
+export const toLocalInput = (time: number): string => {
+  const d = new Date(time)
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+export const fromLocalInput = (value: string): number | null => {
+  const time = new Date(value).getTime()
+  return Number.isFinite(time) ? time : null
+}

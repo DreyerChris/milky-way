@@ -1,4 +1,5 @@
-import type { Action, AppState, Feed, Interval, Settings, Side } from './types'
+import type { TagId } from './tags'
+import type { Action, AppState, Feed, Interval, LogEntry, NoteTarget, Settings, Side, TimeEdit } from './types'
 
 const HOUR = 3_600_000
 
@@ -66,6 +67,57 @@ const updateActive = (state: AppState, fn: (feed: Feed) => Feed): AppState => ({
 const newId = (): string =>
   typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`
 
+export const createEntry = (at: number, tags: readonly TagId[], note: string | null): LogEntry => ({
+  id: newId(),
+  at,
+  tags,
+  note,
+})
+
+export const applyTimeEdit = (feed: Feed, edit: TimeEdit, now: number): Feed => {
+  const first = otherSide(edit.lastSide)
+  const firstMs = Math.max(0, edit[first])
+  const lastMs = Math.max(0, edit[edit.lastSide])
+
+  if (feed.endedAt === null) {
+    const lastStart = now - lastMs
+    const intervals: Interval[] = [
+      ...(firstMs > 0 ? [{ side: first, start: lastStart - firstMs, end: lastStart }] : []),
+      { side: edit.lastSide, start: lastStart, end: isRunning(feed) ? null : now },
+    ]
+    return { ...feed, intervals }
+  }
+
+  const start = edit.start ?? feedStart(feed)
+  const middle = start + firstMs
+  const intervals: Interval[] = [
+    ...(firstMs > 0 ? [{ side: first, start, end: middle }] : []),
+    ...(lastMs > 0 || firstMs === 0 ? [{ side: edit.lastSide, start: middle, end: middle + lastMs }] : []),
+  ]
+  return { ...feed, intervals, endedAt: middle + lastMs }
+}
+
+const sortFeeds = (feeds: readonly Feed[]): readonly Feed[] =>
+  [...feeds].sort((a, b) => {
+    if (a.endedAt === null) return -1
+    if (b.endedAt === null) return 1
+    return feedStart(b) - feedStart(a)
+  })
+
+const sortEntries = (entries: readonly LogEntry[]): readonly LogEntry[] => [...entries].sort((a, b) => b.at - a.at)
+
+const toggle = (tags: readonly TagId[], tag: TagId): readonly TagId[] =>
+  tags.includes(tag) ? tags.filter((t) => t !== tag) : [...tags, tag]
+
+const updateTarget = (
+  state: AppState,
+  target: NoteTarget,
+  fn: <T extends { readonly tags: readonly TagId[]; readonly note: string | null }>(item: T) => T,
+): AppState =>
+  target.kind === 'feed'
+    ? { ...state, feeds: state.feeds.map((f) => (f.id === target.id ? fn(f) : f)) }
+    : { ...state, entries: state.entries.map((e) => (e.id === target.id ? fn(e) : e)) }
+
 export const reducer = (state: AppState, action: Action): AppState => {
   switch (action.type) {
     case 'start': {
@@ -75,6 +127,8 @@ export const reducer = (state: AppState, action: Action): AppState => {
         intervals: [{ side: action.side ?? nextStartSide(state), start: action.now, end: null }],
         endedAt: null,
         pumpedMl: null,
+        tags: [],
+        note: null,
       }
       return { ...state, feeds: [feed, ...state.feeds] }
     }
@@ -97,8 +151,23 @@ export const reducer = (state: AppState, action: Action): AppState => {
       return { ...state, feeds: state.feeds.filter((f) => f.endedAt !== null) }
     case 'set-pumped':
       return { ...state, feeds: state.feeds.map((f) => (f.id === action.id ? { ...f, pumpedMl: action.ml } : f)) }
+    case 'edit-times':
+      return {
+        ...state,
+        feeds: sortFeeds(state.feeds.map((f) => (f.id === action.id ? applyTimeEdit(f, action.edit, action.now) : f))),
+      }
     case 'delete':
       return { ...state, feeds: state.feeds.filter((f) => f.id !== action.id) }
+    case 'toggle-tag':
+      return updateTarget(state, action.target, (item) => ({ ...item, tags: toggle(item.tags, action.tag) }))
+    case 'set-note':
+      return updateTarget(state, action.target, (item) => ({ ...item, note: action.note }))
+    case 'log-entry':
+      return { ...state, entries: sortEntries([action.entry, ...state.entries]) }
+    case 'set-entry-time':
+      return { ...state, entries: sortEntries(state.entries.map((e) => (e.id === action.id ? { ...e, at: action.at } : e))) }
+    case 'delete-entry':
+      return { ...state, entries: state.entries.filter((e) => e.id !== action.id) }
     case 'settings':
       return { ...state, settings: { ...state.settings, ...action.patch } }
     case 'replace':

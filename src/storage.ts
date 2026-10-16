@@ -1,4 +1,6 @@
-import type { AppState, Feed, Interval, Settings } from './types'
+import { NOTE_MAX_LENGTH, isTagId } from './tags'
+import type { TagId } from './tags'
+import type { AppState, Feed, Interval, LogEntry, Settings } from './types'
 
 export const STORAGE_KEY = 'milkyway:v1'
 
@@ -8,7 +10,7 @@ export const DEFAULT_SETTINGS: Settings = {
   dayEndHour: 22,
 }
 
-export const EMPTY_STATE: AppState = { feeds: [], settings: DEFAULT_SETTINGS }
+export const EMPTY_STATE: AppState = { feeds: [], entries: [], settings: DEFAULT_SETTINGS }
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null
 
@@ -18,20 +20,47 @@ const isInterval = (v: unknown): v is Interval =>
   typeof v.start === 'number' &&
   (v.end === null || typeof v.end === 'number')
 
-const isFeed = (v: unknown): v is Feed =>
-  isRecord(v) &&
-  typeof v.id === 'string' &&
-  Array.isArray(v.intervals) &&
-  v.intervals.every(isInterval) &&
-  (v.endedAt === null || typeof v.endedAt === 'number') &&
-  (v.pumpedMl === null || typeof v.pumpedMl === 'number')
+const parseTags = (v: unknown): readonly TagId[] => (Array.isArray(v) ? v.filter(isTagId) : [])
+
+const parseNote = (v: unknown): string | null =>
+  typeof v === 'string' && v.trim().length > 0 ? v.slice(0, NOTE_MAX_LENGTH) : null
+
+const parseFeed = (v: unknown): Feed | null => {
+  if (
+    !isRecord(v) ||
+    typeof v.id !== 'string' ||
+    !Array.isArray(v.intervals) ||
+    !v.intervals.every(isInterval) ||
+    v.intervals.length === 0 ||
+    !(v.endedAt === null || typeof v.endedAt === 'number') ||
+    !(v.pumpedMl === null || typeof v.pumpedMl === 'number')
+  ) {
+    return null
+  }
+  return {
+    id: v.id,
+    intervals: v.intervals,
+    endedAt: v.endedAt,
+    pumpedMl: v.pumpedMl,
+    tags: parseTags(v.tags),
+    note: parseNote(v.note),
+  }
+}
+
+const parseEntry = (v: unknown): LogEntry | null =>
+  isRecord(v) && typeof v.id === 'string' && typeof v.at === 'number'
+    ? { id: v.id, at: v.at, tags: parseTags(v.tags), note: parseNote(v.note) }
+    : null
+
+const present = <T,>(v: T | null): v is T => v !== null
 
 export const parseState = (raw: string | null): AppState => {
   if (!raw) return EMPTY_STATE
   const data: unknown = JSON.parse(raw)
   if (!isRecord(data) || !Array.isArray(data.feeds)) throw new Error('Saved data has an unexpected shape')
   return {
-    feeds: data.feeds.filter(isFeed),
+    feeds: data.feeds.map(parseFeed).filter(present),
+    entries: Array.isArray(data.entries) ? data.entries.map(parseEntry).filter(present) : [],
     settings: { ...DEFAULT_SETTINGS, ...(isRecord(data.settings) ? (data.settings as Partial<Settings>) : {}) },
   }
 }

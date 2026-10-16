@@ -1,4 +1,4 @@
-const CACHE = 'milkyway-v2'
+const CACHE = 'milkyway-v3'
 const SCOPE = self.registration.scope
 const PRECACHE = [
   '',

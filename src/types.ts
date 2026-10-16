@@ -1,3 +1,5 @@
+import type { TagId } from './tags'
+
 export type Side = 'left' | 'right'
 
 export interface Interval {
@@ -11,6 +13,15 @@ export interface Feed {
   readonly intervals: readonly Interval[]
   readonly endedAt: number | null
   readonly pumpedMl: number | null
+  readonly tags: readonly TagId[]
+  readonly note: string | null
+}
+
+export interface LogEntry {
+  readonly id: string
+  readonly at: number
+  readonly tags: readonly TagId[]
+  readonly note: string | null
 }
 
 export interface Settings {
@@ -21,7 +32,20 @@ export interface Settings {
 
 export interface AppState {
   readonly feeds: readonly Feed[]
+  readonly entries: readonly LogEntry[]
   readonly settings: Settings
+}
+
+export interface TimeEdit {
+  readonly left: number
+  readonly right: number
+  readonly lastSide: Side
+  readonly start: number | null
+}
+
+export interface NoteTarget {
+  readonly kind: 'feed' | 'entry'
+  readonly id: string
 }
 
 export type Action =
@@ -32,6 +56,12 @@ export type Action =
   | { readonly type: 'finish'; readonly now: number }
   | { readonly type: 'discard' }
   | { readonly type: 'set-pumped'; readonly id: string; readonly ml: number | null }
+  | { readonly type: 'edit-times'; readonly id: string; readonly edit: TimeEdit; readonly now: number }
   | { readonly type: 'delete'; readonly id: string }
+  | { readonly type: 'toggle-tag'; readonly target: NoteTarget; readonly tag: TagId }
+  | { readonly type: 'set-note'; readonly target: NoteTarget; readonly note: string | null }
+  | { readonly type: 'log-entry'; readonly entry: LogEntry }
+  | { readonly type: 'set-entry-time'; readonly id: string; readonly at: number }
+  | { readonly type: 'delete-entry'; readonly id: string }
   | { readonly type: 'settings'; readonly patch: Partial<Settings> }
   | { readonly type: 'replace'; readonly state: AppState }

@@ -10,6 +10,9 @@ Live: https://milky-way.christiaanldreyer.workers.dev
 - Separate timers for each side plus an overall session timer. Pause, resume and switch sides at any time.
 - History grouped by day, with the last feed and last side shown prominently.
 - Optional pumped milk amount (ml) per feed.
+- Edit times after the fact: minutes per side, start time and which side a feed finished on. On a running feed the timer carries on from the corrected time.
+- Quick tags and a short note on any feed (wet or dirty diaper, cramps, spit-up, hiccups, fussy, fell asleep, burped, good latch, sore nipple, vitamin D).
+- Quick log on the home screen for things that happen between feeds, with undo. Each day in the history shows wet and dirty diaper counts.
 - Feed reminders: 3 hours after the last feed started during the day, 5 hours at night (day and night hours are adjustable). Reminders are sent as Web Push from a Cloudflare Worker, so they arrive while the app is closed. Tapping one starts a new feed.
 - Works offline and can be added to the home screen. Follows the phone's light or dark mode.
 - Soft 3D icons modelled and rendered with the Blender command line.
