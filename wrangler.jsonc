@@ -1,0 +1,26 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "milky-way",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-10-16",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+  "durable_objects": {
+    "bindings": [{ "name": "REMINDERS", "class_name": "ReminderSchedule" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ReminderSchedule"] }],
+  "vars": {
+    "VAPID_PUBLIC_KEY": "BPJPC4JXMPz5HL7kcQ8UyIFjS4eVsQ2m7lAam7WI7J-9HgsvsO0Od3Fam56kHSjmPD0oka3xMuLRvKjJpV0FvA8",
+    "VAPID_SUBJECT": "https://milky-way.christiaanldreyer.workers.dev"
+  },
+  "secrets": {
+    "required": ["VAPID_PRIVATE_JWK"]
+  },
+  "observability": {
+    "enabled": true
+  }
+}

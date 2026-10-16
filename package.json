@@ -1,0 +1,21 @@
+{
+  "name": "milky-way",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host",
+    "deploy": "npm run build && wrangler deploy",
+    "icons": "/Applications/Blender.app/Contents/MacOS/Blender -b -P blender/render_icons.py"
+  },
+  "dependencies": {
+    "preact": "^11.0.1"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vite": "^7.3.7",
+    "wrangler": "^4.151.1"
+  }
+}
