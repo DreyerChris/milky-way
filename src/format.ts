@@ -1,4 +1,4 @@
-import type { Side } from './types'
+import type { Milk, PumpSide, Side } from './types'
 
 const pad = (n: number): string => String(n).padStart(2, '0')
 
@@ -46,6 +46,10 @@ export const formatDay = (dayStart: number, now: number): string => {
 }
 
 export const sideLabel = (side: Side): string => (side === 'left' ? 'Left' : 'Right')
+
+export const pumpSideLabel = (side: PumpSide): string => (side === 'both' ? 'Both' : sideLabel(side))
+
+export const milkLabel = (milk: Milk): string => (milk === 'breast' ? 'Breast milk' : 'Formula')
 
 export const sideShort = (side: Side): string => (side === 'left' ? 'L' : 'R')
 

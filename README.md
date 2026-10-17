@@ -9,7 +9,8 @@ Live: https://milky-way.christiaanldreyer.workers.dev
 - Start a feed on either side. After the first feed, it suggests the side you finished on last time, and you can still pick the other one.
 - Separate timers for each side plus an overall session timer. Pause, resume and switch sides at any time.
 - History grouped by day, with the last feed and last side shown prominently.
-- Optional pumped milk amount (ml) per feed.
+- Breastfeeds, pump sessions and bottle feeds can each be logged on their own, or together in one session (for example feeding on one side while pumping the other, then topping up with a bottle). Add a part to a running session with its + button, and pause or remove each part separately.
+- Pump sessions are timed and record the side (left, right or both) and the amount pumped. Bottles record the amount and whether it was breast milk or formula. Only breastfeeds and bottles count as feeds for reminders.
 - Edit times after the fact: minutes per side, start time and which side a feed finished on. On a running feed the timer carries on from the corrected time.
 - Quick tags and a short note on any feed (wet or dirty diaper, cramps, spit-up, hiccups, fussy, fell asleep, burped, good latch, sore nipple, vitamin D).
 - Quick log on the home screen for things that happen between feeds, with undo. Each day in the history shows wet and dirty diaper counts.
@@ -53,7 +54,7 @@ Changing the VAPID key later is safe. The app notices the new key and subscribes
 
 ## Icons
 
-The icons are modelled procedurally in `blender/render_icons.py` and post-processed by `blender/postprocess.py`. That script builds the app icons and crops the UI icons. Blender 5.x and `cwebp` are required.
+The icons are modelled procedurally in `blender/render_icons.py` and post-processed by `blender/postprocess.py`. That script builds the app icons and crops the UI icons. Blender 5.x and `cwebp` are required. Pass icon names after `--` to render only some of them, e.g. `-- pump bottle`.
 
 ```bash
 npm run icons

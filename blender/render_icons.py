@@ -435,6 +435,69 @@ def icon_moon():
     parent_all([moon, s1, s2], (0, 0, YAW), TARGET)
 
 
+def bottle_body(name, h, r, mats, collar_mat_index):
+    # Rounded bottle body with a narrower collar on top, as one lathe.
+    profile = [(0, -h / 2)]
+    for k in range(1, 9):
+        a = (math.pi / 2) * k / 8
+        profile.append((r * math.sin(a) * 0.98 + 0.02 * r, -h / 2 + r * 0.35 * (1 - math.cos(a))))
+    profile += [(r, h / 2 - r * 0.3), (r * 0.92, h / 2 - r * 0.1), (r * 0.8, h / 2)]
+    return lathe(name, profile, mats, mat_index=collar_mat_index)
+
+
+def icon_bottle():
+    milk = make_mat("milk", C["milk"], rough=0.22, sss=0.45, coat=0.4, sheen=0.1)
+    collar = make_mat("collar", C["sage"], rough=0.42, coat=0.2)
+    teat = make_mat("teat", C["sand"], rough=0.35, sss=0.3, coat=0.3)
+    ticks = make_mat("ticks", C["rose"], rough=0.5)
+    body = bottle_body("bottle", 1.5, 0.5, [milk], None)
+    add_subsurf(body, 1)
+    body.location = (0, 0, -0.35)
+    ring = lathe("collar", [(0, 0.38), (0.5, 0.38), (0.57, 0.34), (0.58, 0.2), (0.57, 0.06), (0.5, 0.02), (0, 0.02)], [collar])
+    add_subsurf(ring, 2)
+    tp = [(0, 1.12), (0.06, 1.11), (0.1, 1.06), (0.11, 0.96), (0.13, 0.86), (0.2, 0.76), (0.32, 0.62), (0.4, 0.5),
+          (0.44, 0.4), (0.4, 0.36), (0, 0.36)]
+    nipple = lathe("teat", tp, [teat])
+    add_subsurf(nipple, 2)
+    objs = [body, ring, nipple]
+    for k in range(3):
+        z = -0.45 + 0.24 * k
+        w = 0.14 if k % 2 == 0 else 0.09
+        objs.append(tube(f"tick{k}", [(-0.18 - w, -0.505, z), (-0.18 + w, -0.505, z)], 0.035, ticks))
+        objs.append(sphere(f"tick{k}a", 0.035, (-0.18 - w, -0.505, z), ticks))
+        objs.append(sphere(f"tick{k}b", 0.035, (-0.18 + w, -0.505, z), ticks))
+    parent_all(objs, (0, math.radians(12), YAW), TARGET + Vector((0, 0, -0.05)))
+
+
+def icon_pump():
+    milk = make_mat("milk", C["milk"], rough=0.22, sss=0.45, coat=0.4, sheen=0.1)
+    shield = make_mat("shield", C["sage"], rough=0.35, sss=0.2, coat=0.35)
+    hub = make_mat("hub", C["rose"], rough=0.42, coat=0.2)
+    lever = make_mat("lever", C["caramel"], rough=0.4, coat=0.2)
+    collar = make_mat("collar", C["sand"], rough=0.42, coat=0.2)
+
+    body = bottle_body("bottle", 1.0, 0.36, [milk], None)
+    add_subsurf(body, 1)
+    body.location = (0.18, 0, -0.42)
+    ring = lathe("collar", [(0, 0.2), (0.36, 0.2), (0.41, 0.17), (0.42, 0.1), (0.41, 0.03), (0.36, 0.0), (0, 0.0)], [collar])
+    add_subsurf(ring, 2)
+    ring.location = (0.18, 0, 0.02)
+    centre = sphere("hub", 0.36, (0.18, 0, 0.44), hub, (1, 1, 0.92))
+
+    # Breast shield: a funnel lying on its side, its open mouth facing the viewer's left.
+    fp = [(0.0, 0.0), (0.14, 0.0), (0.15, 0.16), (0.18, 0.3), (0.3, 0.48), (0.5, 0.64), (0.66, 0.74), (0.7, 0.78),
+          (0.66, 0.8), (0.58, 0.76), (0.42, 0.64), (0.24, 0.48), (0.1, 0.34), (0.0, 0.3)]
+    funnel = lathe("shield", fp, [shield])
+    add_subsurf(funnel, 2)
+    funnel.location = (-0.1, 0, 0.46)
+    funnel.rotation_euler = (0, math.radians(-90), math.radians(-16))
+
+    handle = [xz(0.36, 0.7), xz(0.66, 0.92), xz(0.98, 0.98)]
+    capsule_path("lever", handle, 0.1, lever)
+    objs = [body, ring, centre, funnel] + [o for o in bpy.context.scene.objects if o.name.startswith("lever")]
+    parent_all(objs, (0, 0, math.radians(-24)), TARGET + Vector((0.05, 0, 0.0)))
+
+
 def icon_app():
     m = make_mat("milk", C["milk"], rough=0.22, sss=0.45, coat=0.4, sheen=0.1)
     eye = make_mat("eye", "#4A3A30", rough=0.2, coat=0.6, sss=0.0)
@@ -477,6 +540,8 @@ ICONS = {
     "sun": icon_sun,
     "moon": icon_moon,
     "app": icon_app,
+    "bottle": icon_bottle,
+    "pump": icon_pump,
 }
 
 

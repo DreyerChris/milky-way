@@ -1,4 +1,4 @@
-const CACHE = 'milkyway-v3'
+const CACHE = 'milkyway-v4'
 const SCOPE = self.registration.scope
 const PRECACHE = [
   '',
@@ -6,7 +6,7 @@ const PRECACHE = [
   'icons/app-192.png',
   'icons/app-512.png',
   'icons/badge-96.png',
-  ...['play', 'pause', 'check', 'switch', 'drop', 'bell', 'side', 'clock', 'sun', 'moon', 'app'].map((n) => `icons/${n}.webp`),
+  ...['play', 'pause', 'check', 'switch', 'drop', 'bell', 'side', 'clock', 'sun', 'moon', 'app', 'pump', 'bottle'].map((n) => `icons/${n}.webp`),
 ].map((path) => new URL(path, SCOPE).href)
 
 self.addEventListener('install', (event) => {

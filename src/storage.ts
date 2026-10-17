@@ -1,6 +1,6 @@
 import { NOTE_MAX_LENGTH, isTagId } from './tags'
 import type { TagId } from './tags'
-import type { AppState, Feed, Interval, LogEntry, Settings } from './types'
+import type { AppState, Bottle, Feed, Interval, LogEntry, Pump, Settings, Span, TimedPart } from './types'
 
 export const STORAGE_KEY = 'milkyway:v1'
 
@@ -14,11 +14,30 @@ export const EMPTY_STATE: AppState = { feeds: [], entries: [], settings: DEFAULT
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null
 
-const isInterval = (v: unknown): v is Interval =>
-  isRecord(v) &&
-  (v.side === 'left' || v.side === 'right') &&
-  typeof v.start === 'number' &&
-  (v.end === null || typeof v.end === 'number')
+const isSpan = (v: unknown): v is Span =>
+  isRecord(v) && typeof v.start === 'number' && (v.end === null || typeof v.end === 'number')
+
+const isInterval = (v: unknown): v is Interval => isSpan(v) && isRecord(v) && (v.side === 'left' || v.side === 'right')
+
+const parseMl = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null)
+
+const parsePump = (v: unknown, legacyMl: unknown): Pump | null => {
+  if (isRecord(v) && Array.isArray(v.spans) && v.spans.every(isSpan)) {
+    const side = v.side === 'left' || v.side === 'right' ? v.side : 'both'
+    return { side, spans: v.spans, ml: parseMl(v.ml) }
+  }
+  // Feeds saved before pumping was its own part kept only an amount.
+  const ml = parseMl(legacyMl)
+  return ml === null ? null : { side: 'both', spans: [], ml }
+}
+
+const parseBottle = (v: unknown): Bottle | null =>
+  isRecord(v) && typeof v.at === 'number'
+    ? { at: v.at, ml: parseMl(v.ml), milk: v.milk === 'formula' ? 'formula' : 'breast' }
+    : null
+
+const parsePaused = (v: unknown): readonly TimedPart[] =>
+  Array.isArray(v) ? v.filter((p): p is TimedPart => p === 'breast' || p === 'pump') : []
 
 const parseTags = (v: unknown): readonly TagId[] => (Array.isArray(v) ? v.filter(isTagId) : [])
 
@@ -31,17 +50,20 @@ const parseFeed = (v: unknown): Feed | null => {
     typeof v.id !== 'string' ||
     !Array.isArray(v.intervals) ||
     !v.intervals.every(isInterval) ||
-    v.intervals.length === 0 ||
-    !(v.endedAt === null || typeof v.endedAt === 'number') ||
-    !(v.pumpedMl === null || typeof v.pumpedMl === 'number')
+    !(v.endedAt === null || typeof v.endedAt === 'number')
   ) {
     return null
   }
+  const pump = parsePump(v.pump, v.pumpedMl)
+  const bottle = parseBottle(v.bottle)
+  if (v.intervals.length === 0 && pump === null && bottle === null) return null
   return {
     id: v.id,
     intervals: v.intervals,
+    pump,
+    bottle,
     endedAt: v.endedAt,
-    pumpedMl: v.pumpedMl,
+    paused: parsePaused(v.paused),
     tags: parseTags(v.tags),
     note: parseNote(v.note),
   }

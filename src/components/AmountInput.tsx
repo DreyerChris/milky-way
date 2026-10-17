@@ -1,9 +1,12 @@
 import type { JSX } from 'preact'
 import { useEffect, useState } from 'preact/hooks'
+import type { IconName } from './Icon'
 import { Icon } from './Icon'
 
-interface PumpedInputProps {
+interface AmountInputProps {
   readonly id: string
+  readonly label: string
+  readonly icon?: IconName
   readonly value: number | null
   readonly onChange: (ml: number | null) => void
 }
@@ -13,7 +16,7 @@ const parseMl = (raw: string): number | null => {
   return Number.isFinite(n) && n > 0 ? Math.min(n, 2000) : null
 }
 
-export function PumpedInput({ id, value, onChange }: PumpedInputProps): JSX.Element {
+export function AmountInput({ id, label, icon = 'drop', value, onChange }: AmountInputProps): JSX.Element {
   const [text, setText] = useState(value === null ? '' : String(value))
 
   useEffect(() => {
@@ -26,14 +29,14 @@ export function PumpedInput({ id, value, onChange }: PumpedInputProps): JSX.Elem
   }
 
   return (
-    <div class="pumped">
-      <label class="pumped__label" for={id}>
-        <Icon name="drop" size={30} />
+    <div class="amount">
+      <label class="amount__label" for={id}>
+        <Icon name={icon} size={30} />
         <span>
-          Pumped milk <span class="muted">(optional)</span>
+          {label} <span class="muted">(optional)</span>
         </span>
       </label>
-      <div class="pumped__field">
+      <div class="amount__field">
         <input
           id={id}
           type="number"
@@ -45,7 +48,7 @@ export function PumpedInput({ id, value, onChange }: PumpedInputProps): JSX.Elem
           value={text}
           onInput={(e) => commit(e.currentTarget.value)}
         />
-        <span class="pumped__unit">ml</span>
+        <span class="amount__unit">ml</span>
       </div>
     </div>
   )

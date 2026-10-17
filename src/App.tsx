@@ -1,6 +1,7 @@
 import type { JSX } from 'preact'
 import { useCallback, useEffect, useMemo, useReducer, useState } from 'preact/hooks'
 import { ActiveFeed } from './components/ActiveFeed'
+import { BottleSheet } from './components/BottleSheet'
 import { History } from './components/History'
 import { Icon } from './components/Icon'
 import { LastFeed } from './components/LastFeed'
@@ -8,13 +9,25 @@ import { QuickLog } from './components/QuickLog'
 import { SettingsSheet } from './components/SettingsSheet'
 import type { ToastMessage } from './components/Toast'
 import { Toast } from './components/Toast'
-import { activeFeed, createEntry, finishedFeeds, isRunning, latestFeed, nextReminder, nextStartSide, reducer } from './feeds'
+import {
+  activeFeed,
+  createBottleFeed,
+  createEntry,
+  finishedFeeds,
+  isRunning,
+  latestFeed,
+  latestPump,
+  nextReminder,
+  nextStartSide,
+  reducer,
+} from './feeds'
+import { milkLabel } from './format'
 import { useNow } from './hooks'
 import type { InstallPromptEvent, ReminderStatus } from './pwa'
 import { REMINDERS_OFF, registerServiceWorker, syncReminder } from './pwa'
 import type { TagId } from './tags'
 import { tagById } from './tags'
-import type { Side } from './types'
+import type { Milk, Side } from './types'
 import { STORAGE_KEY, loadState, parseState, requestPersistentStorage, saveState } from './storage'
 
 export function App(): JSX.Element {
@@ -22,6 +35,7 @@ export function App(): JSX.Element {
   const [state, dispatch] = useReducer(reducer, initial.state)
   const [error, setError] = useState<string | null>(initial.error)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [bottleOpen, setBottleOpen] = useState(false)
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null)
   const [reminderStatus, setReminderStatus] = useState<ReminderStatus>(REMINDERS_OFF)
   const [toast, setToast] = useState<ToastMessage | null>(null)
@@ -32,6 +46,13 @@ export function App(): JSX.Element {
   const startSide = nextStartSide(state)
 
   const startFeed = useCallback((side?: Side): void => dispatch({ type: 'start', now: Date.now(), side }), [])
+
+  const logBottle = (at: number, ml: number | null, milk: Milk): void => {
+    const feed = createBottleFeed(at, ml, milk)
+    dispatch({ type: 'log-feed', feed })
+    const what = ml ? `${ml} ml ${milkLabel(milk).toLowerCase()}` : milkLabel(milk).toLowerCase()
+    setToast({ id: feed.id, text: `Logged a bottle of ${what}`, undo: () => dispatch({ type: 'delete', id: feed.id }) })
+  }
 
   const logEntry = (tags: readonly TagId[], note: string | null): void => {
     const entry = createEntry(Date.now(), tags, note)
@@ -114,11 +135,14 @@ export function App(): JSX.Element {
         ) : (
           <LastFeed
             feed={latestFeed(state)}
+            lastPump={latestPump(state)}
             startSide={startSide}
             reminder={reminder}
             remindersEnabled={state.settings.remindersEnabled}
             now={now}
             onStart={startFeed}
+            onPump={() => dispatch({ type: 'start', part: 'pump', now: Date.now() })}
+            onBottle={() => setBottleOpen(true)}
             onOpenSettings={() => setSettingsOpen(true)}
           />
         )}
@@ -135,6 +159,8 @@ export function App(): JSX.Element {
         onClose={() => setSettingsOpen(false)}
         dispatch={dispatch}
       />
+
+      {bottleOpen && <BottleSheet onLog={logBottle} onClose={() => setBottleOpen(false)} />}
 
       <Toast toast={toast} onDone={() => setToast(null)} />
     </div>

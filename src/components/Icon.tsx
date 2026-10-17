@@ -1,6 +1,19 @@
 import type { JSX } from 'preact'
 
-export type IconName = 'play' | 'pause' | 'check' | 'switch' | 'drop' | 'bell' | 'side' | 'clock' | 'sun' | 'moon' | 'app'
+export type IconName =
+  | 'play'
+  | 'pause'
+  | 'check'
+  | 'switch'
+  | 'drop'
+  | 'bell'
+  | 'side'
+  | 'clock'
+  | 'sun'
+  | 'moon'
+  | 'app'
+  | 'pump'
+  | 'bottle'
 
 interface IconProps {
   readonly name: IconName

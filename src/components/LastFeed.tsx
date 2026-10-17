@@ -1,19 +1,49 @@
 import type { JSX } from 'preact'
 import type { Reminder } from '../feeds'
-import { DAY_INTERVAL_HOURS, NIGHT_INTERVAL_HOURS, feedStart, lastSide, totalMs } from '../feeds'
-import { otherSide } from '../feeds'
-import { formatAgo, formatClock, formatDuration, sideLabel } from '../format'
+import { DAY_INTERVAL_HOURS, NIGHT_INTERVAL_HOURS, feedStart, lastSide, otherSide, sessionMs } from '../feeds'
+import { formatAgo, formatClock, formatDuration, milkLabel, sideLabel } from '../format'
 import type { Feed, Side } from '../types'
 import { Icon } from './Icon'
 
 interface LastFeedProps {
   readonly feed: Feed | null
+  readonly lastPump: Feed | null
   readonly startSide: Side
   readonly reminder: Reminder | null
   readonly remindersEnabled: boolean
   readonly now: number
   readonly onStart: (side: Side) => void
+  readonly onPump: () => void
+  readonly onBottle: () => void
   readonly onOpenSettings: () => void
+}
+
+function OtherStarts({ onPump, onBottle }: { readonly onPump: () => void; readonly onBottle: () => void }): JSX.Element {
+  return (
+    <div class="start-more" role="group" aria-label="Pump or bottle">
+      <button type="button" class="start-more__btn" onClick={onPump}>
+        <Icon name="pump" size={40} />
+        <span>Start pumping</span>
+      </button>
+      <button type="button" class="start-more__btn" onClick={onBottle}>
+        <Icon name="bottle" size={40} />
+        <span>Log a bottle</span>
+      </button>
+    </div>
+  )
+}
+
+function PumpLine({ feed, now }: { readonly feed: Feed; readonly now: number }): JSX.Element {
+  const ml = feed.pump?.ml
+  return (
+    <p class="pump-line">
+      <Icon name="pump" size={28} />
+      <span>
+        Last pumped {formatAgo(now - feedStart(feed))}
+        {ml ? ` · ${ml} ml` : ''}
+      </span>
+    </p>
+  )
 }
 
 function ReminderLine({
@@ -46,18 +76,23 @@ function ReminderLine({
 
 export function LastFeed({
   feed,
+  lastPump,
   startSide,
   reminder,
   remindersEnabled,
   now,
   onStart,
+  onPump,
+  onBottle,
   onOpenSettings,
 }: LastFeedProps): JSX.Element {
   const side = feed ? lastSide(feed) : null
+  const bottle = feed?.bottle ?? null
+  const lasted = feed ? sessionMs(feed, now) : 0
 
   return (
     <section class="card hero" aria-labelledby="hero-title">
-      {feed && side ? (
+      {feed ? (
         <>
           <div class="hero__top">
             <div>
@@ -66,23 +101,37 @@ export function LastFeed({
               </p>
               <p class="ago">{formatAgo(now - feedStart(feed))}</p>
               <p class="sub">
-                Started {formatClock(feedStart(feed))} · lasted {formatDuration(totalMs(feed, now))}
+                Started {formatClock(feedStart(feed))}
+                {lasted > 0 && ` · lasted ${formatDuration(lasted)}`}
               </p>
             </div>
           </div>
-          <div class="last-side">
-            <Icon name="side" size={72} flip={side === 'right'} />
-            <div>
-              <p class="eyebrow">Last side</p>
-              <p class="last-side__name">{sideLabel(side)}</p>
+          {side && (
+            <div class="last-side">
+              <Icon name="side" size={72} flip={side === 'right'} />
+              <div>
+                <p class="eyebrow">Last side</p>
+                <p class="last-side__name">{sideLabel(side)}</p>
+              </div>
+              <span class={`side-badge side-badge--${side}`} aria-hidden="true">
+                {side === 'left' ? 'L' : 'R'}
+              </span>
             </div>
-            <span class={`side-badge side-badge--${side}`} aria-hidden="true">
-              {side === 'left' ? 'L' : 'R'}
-            </span>
-          </div>
+          )}
+          {bottle && (
+            <div class="last-side">
+              <Icon name="bottle" size={72} />
+              <div>
+                <p class="eyebrow">{side ? 'Plus a bottle' : 'Bottle'}</p>
+                <p class="last-side__name">{bottle.ml ? `${bottle.ml} ml` : milkLabel(bottle.milk)}</p>
+              </div>
+              {bottle.ml !== null && <span class="muted">{milkLabel(bottle.milk)}</span>}
+            </div>
+          )}
           {reminder && (
             <ReminderLine reminder={reminder} enabled={remindersEnabled} now={now} onOpenSettings={onOpenSettings} />
           )}
+          {lastPump && <PumpLine feed={lastPump} now={now} />}
         </>
       ) : (
         <div class="welcome">
@@ -111,6 +160,7 @@ export function LastFeed({
           ))}
         </div>
       )}
+      <OtherStarts onPump={onPump} onBottle={onBottle} />
     </section>
   )
 }

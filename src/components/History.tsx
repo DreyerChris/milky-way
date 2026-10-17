@@ -1,13 +1,13 @@
 import type { JSX } from 'preact'
 import { useState } from 'preact/hooks'
-import { feedStart, lastSide, sideMs, totalMs } from '../feeds'
-import { dayKey, formatClock, formatDay, formatDuration, fromLocalInput, sideShort, toLocalInput } from '../format'
+import { breastMs, feedStart, hasBreast, isBabyFeed, lastSide, partsOf, pumpMs, sessionMs, sideMs } from '../feeds'
+import { dayKey, formatClock, formatDay, formatDuration, fromLocalInput, milkLabel, pumpSideLabel, sideShort, toLocalInput } from '../format'
 import type { TagId } from '../tags'
 import { tagById } from '../tags'
-import type { Action, Feed, LogEntry, NoteTarget, Side } from '../types'
+import type { Action, Feed, LogEntry, NoteTarget, Part, Side } from '../types'
 import { EditTimesSheet } from './EditTimesSheet'
 import { Icon } from './Icon'
-import { PumpedInput } from './PumpedInput'
+import { AddParts, BottlePanel, PumpPanel } from './PartPanels'
 import { TagPicker } from './TagPicker'
 
 interface HistoryProps {
@@ -41,6 +41,11 @@ const groupByDay = (items: readonly Item[]): readonly DayGroup[] =>
 
 const sidesInOrder = (feed: Feed): readonly Side[] =>
   feed.intervals.reduce<Side[]>((acc, i) => (acc.includes(i.side) ? acc : [...acc, i.side]), [])
+
+const ADDABLE_LATER: readonly Part[] = ['pump', 'bottle']
+
+const sumMl = (feeds: readonly Feed[], pick: (f: Feed) => number | null | undefined): number =>
+  feeds.reduce((sum, f) => sum + (pick(f) ?? 0), 0)
 
 const itemTags = (item: Item): readonly TagId[] => (item.kind === 'feed' ? item.feed.tags : item.entry.tags)
 
@@ -104,6 +109,8 @@ function FeedRow({ feed, now, dispatch }: { readonly feed: Feed; readonly now: n
   const [editing, setEditing] = useState(false)
   const ended = lastSide(feed)
   const panelId = `feed-${feed.id}`
+  const total = sessionMs(feed, now)
+  const parts = partsOf(feed)
 
   return (
     <li class={`feed-row ${open ? 'is-open' : ''}`}>
@@ -115,34 +122,40 @@ function FeedRow({ feed, now, dispatch }: { readonly feed: Feed; readonly now: n
               <b>{sideShort(side)}</b> {formatDuration(sideMs(feed, side, now))}
             </span>
           ))}
-        </span>
-        <span class="feed-row__meta">
-          {feed.pumpedMl !== null && (
-            <span class="feed-row__ml">
-              <Icon name="drop" size={20} />
-              {feed.pumpedMl} ml
+          {feed.pump && (
+            <span class="chip chip--pump" title={`Pumped, ${pumpSideLabel(feed.pump.side).toLowerCase()}`}>
+              <Icon name="pump" size={20} />
+              {feed.pump.ml !== null ? `${feed.pump.ml} ml` : formatDuration(pumpMs(feed, now))}
             </span>
           )}
-          <span class="feed-row__total">{formatDuration(totalMs(feed, now))}</span>
+          {feed.bottle && (
+            <span class="chip chip--bottle" title={`Bottle, ${milkLabel(feed.bottle.milk).toLowerCase()}`}>
+              <Icon name="bottle" size={20} />
+              {feed.bottle.ml !== null ? `${feed.bottle.ml} ml` : 'Bottle'}
+              {feed.bottle.milk === 'formula' && <span class="chip__extra">formula</span>}
+            </span>
+          )}
+        </span>
+        <span class="feed-row__meta">
+          {total > 0 && <span class="feed-row__total">{formatDuration(total)}</span>}
         </span>
         <TagLine tags={feed.tags} note={feed.note} />
       </button>
       {open && (
         <div class="feed-row__panel" id={panelId}>
           <p class="sub sub--row">
-            {formatClock(feedStart(feed))}–{feed.endedAt !== null ? formatClock(feed.endedAt) : 'now'} · ended on{' '}
-            {ended === 'left' ? 'left' : 'right'}
+            {formatClock(feedStart(feed))}
+            {total > 0 && feed.endedAt !== null && `–${formatClock(feed.endedAt)}`}
+            {ended && ` · ended on ${ended}`}
             <button type="button" class="link link--inline" onClick={() => setEditing(true)}>
               Edit times
             </button>
           </p>
-          <PumpedInput
-            id={`pumped-${feed.id}`}
-            value={feed.pumpedMl}
-            onChange={(ml) => dispatch({ type: 'set-pumped', id: feed.id, ml })}
-          />
+          <PumpPanel feed={feed} now={now} live={false} removable={parts.length > 1} dispatch={dispatch} />
+          <BottlePanel feed={feed} now={now} live={false} removable={parts.length > 1} dispatch={dispatch} />
+          <AddParts feed={feed} parts={ADDABLE_LATER.filter((p) => !parts.includes(p))} dispatch={dispatch} />
           <NotesEditor target={{ kind: 'feed', id: feed.id }} tags={feed.tags} note={feed.note} dispatch={dispatch} />
-          <DeleteControl label="feed" onDelete={() => dispatch({ type: 'delete', id: feed.id })} />
+          <DeleteControl label={isBabyFeed(feed) ? 'feed' : 'pump'} onDelete={() => dispatch({ type: 'delete', id: feed.id })} />
         </div>
       )}
       {editing && (
@@ -209,14 +222,18 @@ export function History({ feeds, entries, now, dispatch }: HistoryProps): JSX.El
         <p class="empty">Finished feeds and notes will show up here.</p>
       ) : (
         groups.map((group) => {
-          const dayFeeds = group.items.flatMap((i) => (i.kind === 'feed' ? [i.feed] : []))
-          const ml = dayFeeds.reduce((sum, f) => sum + (f.pumpedMl ?? 0), 0)
-          const time = dayFeeds.reduce((sum, f) => sum + totalMs(f, now), 0)
+          const daySessions = group.items.flatMap((i) => (i.kind === 'feed' ? [i.feed] : []))
+          const dayFeeds = daySessions.filter(isBabyFeed)
+          const time = dayFeeds.filter(hasBreast).reduce((sum, f) => sum + breastMs(f, now), 0)
+          const bottleMl = sumMl(dayFeeds, (f) => f.bottle?.ml)
+          const pumpedMl = sumMl(daySessions, (f) => f.pump?.ml)
           const wet = countTag(group.items, 'wet')
           const dirty = countTag(group.items, 'dirty')
           const parts = [
-            dayFeeds.length > 0 ? `${dayFeeds.length} ${dayFeeds.length === 1 ? 'feed' : 'feeds'} · ${formatDuration(time)}` : null,
-            ml > 0 ? `${ml} ml` : null,
+            dayFeeds.length > 0 ? `${dayFeeds.length} ${dayFeeds.length === 1 ? 'feed' : 'feeds'}` : null,
+            time > 0 ? formatDuration(time) : null,
+            bottleMl > 0 ? `${bottleMl} ml bottle` : null,
+            pumpedMl > 0 ? `${pumpedMl} ml pumped` : null,
           ].filter((p): p is string => p !== null)
           return (
             <div class="day" key={group.day}>
